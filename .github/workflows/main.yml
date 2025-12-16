@@ -56,7 +56,7 @@ jobs:
 
       - name: Run container
         run: |
-          docker-compose up -d
+          docker compose up -d
 
       - name: Health check
         run: |
