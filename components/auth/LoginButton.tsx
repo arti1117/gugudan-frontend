@@ -1,5 +1,6 @@
 "use client";
 
+import type { JSX } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { OAUTH_PROVIDERS, type OAuthProvider } from "@/lib/constants";
 
