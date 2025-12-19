@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { GoogleLoginButton } from "@/components/auth/LoginButton";
+import {GoogleLoginButton, NaverLoginButton} from "@/components/auth/LoginButton";
 import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/lib/constants";
 
@@ -55,12 +55,8 @@ export default function LoginPage() {
           {/* Social Login Buttons */}
           <div className="space-y-3">
             <GoogleLoginButton />
-
-            {/* Future providers (disabled for now) */}
-            {/*
-            <KakaoLoginButton />
+  {/*          <KakaoLoginButton />*/}
             <NaverLoginButton />
-            */}
           </div>
 
           {/* Terms notice */}
