@@ -1,9 +1,9 @@
-interface ChatMessageProps {
+interface Props {
   role: "USER" | "ASSISTANT";
   content: string;
 }
 
-export function ChatMessage({ role, content }: ChatMessageProps) {
+export function ChatMessage({ role, content }: Props) {
   const isUser = role === "USER";
 
   return (

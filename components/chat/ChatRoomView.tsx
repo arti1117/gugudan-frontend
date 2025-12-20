@@ -8,42 +8,47 @@ type Message = {
   content: string;
 };
 
-interface ChatRoomViewProps {
-  roomId: number | null;
-  onRoomCreated: (roomId: number) => void;
+interface Props {
+  roomId: string | null;
+  onRoomCreated: (roomId: string) => void;
 }
 
-export function ChatRoomView({ roomId, onRoomCreated }: ChatRoomViewProps) {
+export function ChatRoomView({ roomId, onRoomCreated }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const [currentRoomId, setCurrentRoomId] = useState<number | null>(roomId);
 
   /** 채팅 내역 로드 */
   useEffect(() => {
-    if (!currentRoomId) {
-      setMessages([]); // 새 채팅방이면 메시지 없음
+    if (!roomId) {
+      setMessages([]);
       return;
     }
 
     const fetchMessages = async () => {
       try {
         const res = await fetch(
-          `http://localhost:33333/conversation/rooms/${currentRoomId}/messages`,
+          `http://localhost:33333/conversation/rooms/${roomId}/messages`,
           { credentials: "include" }
         );
-        const data: Message[] = await res.json();
-        setMessages(data);
-      } catch (err) {
-        console.error(err);
+
+        if (!res.ok) {
+          setMessages([]);
+          return;
+        }
+
+        const data = await res.json();
+        setMessages(Array.isArray(data) ? data : []);
+      } catch {
+        setMessages([]);
       }
     };
 
     void fetchMessages();
-  }, [currentRoomId]);
+  }, [roomId]);
 
-  /** 메시지 전송 + 스트리밍 + 자동 새 방 생성 */
+  /** 메시지 전송 */
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
 
@@ -58,22 +63,22 @@ export function ChatRoomView({ roomId, onRoomCreated }: ChatRoomViewProps) {
     ]);
 
     try {
-      const response = await fetch(
-        `http://localhost:33333/conversation/chat/stream-auto`,
+      const res = await fetch(
+        "http://localhost:33333/conversation/chat/stream-auto",
         {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            room_id: currentRoomId, // 없으면 서버에서 새 방 생성
+            room_id: roomId,
             message: userMessage,
           }),
         }
       );
 
-      if (!response.body) return;
+      if (!res.body) return;
 
-      const reader = response.body.getReader();
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let assistantText = "";
 
@@ -94,18 +99,18 @@ export function ChatRoomView({ roomId, onRoomCreated }: ChatRoomViewProps) {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
       }
 
-      // 새로 생성된 방이면 roomId 갱신 + 부모에게 알림
-      if (!currentRoomId) {
-        const roomsRes = await fetch("http://localhost:33333/conversation/rooms", {
-          credentials: "include",
-        });
+      /** 새 방 생성된 경우 → 방 목록 다시 조회 */
+      if (!roomId) {
+        const roomsRes = await fetch(
+          "http://localhost:33333/conversation/rooms",
+          { credentials: "include" }
+        );
         const rooms = await roomsRes.json();
-        const newRoom = rooms[rooms.length - 1]; // 마지막 방이 새 방
-        setCurrentRoomId(newRoom.room_id);
-        onRoomCreated(newRoom.room_id);
+        const newest = rooms[0];
+        if (newest?.room_id) {
+          onRoomCreated(newest.room_id);
+        }
       }
-    } catch (err) {
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -117,7 +122,11 @@ export function ChatRoomView({ roomId, onRoomCreated }: ChatRoomViewProps) {
 
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-3">
         {messages.map((msg, idx) => (
-          <ChatMessage key={idx} role={msg.role} content={msg.content} />
+          <ChatMessage
+            key={idx}
+            role={msg.role}
+            content={msg.content}
+          />
         ))}
         <div ref={bottomRef} />
       </div>

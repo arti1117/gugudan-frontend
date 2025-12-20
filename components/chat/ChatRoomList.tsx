@@ -3,30 +3,36 @@
 import { useEffect, useState } from "react";
 
 type ChatRoom = {
-  room_id: number;
-  title: string;
+  room_id: string;
+  title: string | null;
 };
 
-export function ChatRoomList({
-  onSelect,
-  selectedRoomId,
-}: {
-  onSelect: (roomId: number) => void;
-  selectedRoomId: number | null;
-}) {
+interface Props {
+  selectedRoomId: string | null;
+  onSelect: (roomId: string) => void;
+}
+
+export function ChatRoomList({ selectedRoomId, onSelect }: Props) {
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchRooms = async (): Promise<void> => {
+  const fetchRooms = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:33333/conversation/rooms", {
-        credentials: "include",
-      });
-      const data: ChatRoom[] = await res.json();
-      setRooms(data);
-    } catch (err) {
-      console.error(err);
+      const res = await fetch(
+        "http://localhost:33333/conversation/rooms",
+        { credentials: "include" }
+      );
+
+      if (!res.ok) {
+        setRooms([]);
+        return;
+      }
+
+      const data = await res.json();
+      setRooms(Array.isArray(data) ? data : []);
+    } catch {
+      setRooms([]);
     } finally {
       setLoading(false);
     }
@@ -55,11 +61,11 @@ export function ChatRoomList({
           <button
             key={room.room_id}
             onClick={() => onSelect(room.room_id)}
-            className={`w-full text-left px-4 py-3 hover:bg-gray-100 border-b ${
+            className={`w-full text-left px-4 py-3 border-b hover:bg-gray-100 ${
               selectedRoomId === room.room_id ? "bg-gray-200" : ""
             }`}
           >
-            {room.title ?? `채팅방 #${room.room_id}`}
+            {room.title ?? "새 채팅"}
           </button>
         ))}
       </div>
