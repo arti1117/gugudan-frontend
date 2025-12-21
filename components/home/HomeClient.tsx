@@ -159,7 +159,7 @@ const canStart = !isLoading && isAuthenticated;
             <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
               🔒
             </div>
-            <h3 className="font-semibold mb-2">완벽한 비밀 보장</h3>
+            <h3 className="text-gray-900 font-semibold mb-2">완벽한 비밀 보장</h3>
             <p className="text-sm text-gray-600">
               대화 내용은 암호화되어 안전하게 보호돼요
             </p>
@@ -169,7 +169,7 @@ const canStart = !isLoading && isAuthenticated;
             <div className="w-14 h-14 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
               💬
             </div>
-            <h3 className="font-semibold mb-2">즉각적인 응답</h3>
+            <h3 className="text-gray-900 font-semibold mb-2">즉각적인 응답</h3>
             <p className="text-sm text-gray-600">
               기다릴 필요 없이 바로 대화를 시작해요
             </p>
@@ -179,7 +179,7 @@ const canStart = !isLoading && isAuthenticated;
             <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
               💜
             </div>
-            <h3 className="font-semibold mb-2">따뜻한 공감</h3>
+            <h3 className="text-gray-900 font-semibold mb-2">따뜻한 공감</h3>
             <p className="text-sm text-gray-600">
               판단하지 않고 당신의 이야기를 경청해요
             </p>
