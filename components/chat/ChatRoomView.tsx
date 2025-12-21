@@ -37,7 +37,7 @@ export function ChatRoomView({ roomId, onRoomCreated }: Props) {
     }
 
 const fetchMessages = async () => {
-  const url = `http://localhost:33333/conversation/rooms/${roomId}/messages`;
+  const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/conversation/rooms/${roomId}/messages`;
   console.log("fetchMessages url:", url);
 
   try {
@@ -83,7 +83,7 @@ const fetchMessages = async () => {
     ]);
 
     try {
-      const res = await fetch("http://localhost:33333/conversation/chat/stream-auto", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/conversation/chat/stream-auto`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -109,7 +109,7 @@ const fetchMessages = async () => {
       }
 
       if (!roomId) {
-        const roomsRes = await fetch("http://localhost:33333/conversation/rooms", { credentials: "include" });
+        const roomsRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/conversation/rooms`, { credentials: "include" });
         const rooms = await roomsRes.json();
         const newest = rooms[0];
         if (newest?.room_id) onRoomCreated(newest.room_id);
