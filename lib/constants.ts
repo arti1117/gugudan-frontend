@@ -22,7 +22,7 @@ export const API_ENDPOINTS = {
 export const ROUTES = {
   HOME: "/",
   LOGIN: "/login",
-  CONSULTATION: "/consultation",
+  CONSULTATION: "/chat",
   MY_PAGE: "/my",
 } as const;
 

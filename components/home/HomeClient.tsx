@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/lib/constants";
 import { Button } from "@/components/ui/Button";
 import { useRouter } from "next/navigation";
+import { startNewChat } from "@/lib/chatNav";
 
 type ConsultationTopic = "marriage" | "dating" | "crush" | null;
 
@@ -143,10 +144,7 @@ const canStart = !isLoading && isAuthenticated;
             <Button
               disabled={!canStart}
               className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-12 py-6 text-lg rounded-full shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
-              onClick={() => {
-                // 상담 페이지 제외니까 일단 알림
-                router.push("/chat"); // ✅ 여기로 이동
-              }}
+              onClick={() => startNewChat(router, "/chat")}
             >
               상담 시작하기 →
             </Button>
