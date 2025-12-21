@@ -2,6 +2,7 @@ import "./globals.css";
 import type {Metadata} from "next";
 import Script from 'next/script';
 import {AuthProvider} from "@/components/auth/AuthProvider";
+import { AppHeader } from "@/components/layout/AppHeader";
 
 export const metadata: Metadata = {
     title: "Gugudan - AI Counselor",
@@ -36,6 +37,7 @@ export default function RootLayout({
             )}<title>Gugudan</title>
         </head>
         <body>
+            
         {/* GTM noscript */}
         {GTM_ID && (
             <noscript>
@@ -47,7 +49,10 @@ export default function RootLayout({
                 />
             </noscript>
         )}
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+        <AppHeader />
+            {children}
+        </AuthProvider>
         </body>
         </html>
     );
