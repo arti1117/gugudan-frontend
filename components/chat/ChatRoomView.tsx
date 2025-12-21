@@ -36,17 +36,26 @@ export function ChatRoomView({ roomId, onRoomCreated }: Props) {
       return;
     }
 
-    const fetchMessages = async () => {
-      try {
-        const res = await fetch(`http://localhost:33333/conversation/rooms/${roomId}/messages`, { credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
-          setMessages(Array.isArray(data) ? data : []);
-        }
-      } catch (err) {
-        console.error("Failed to fetch messages:", err);
-      }
-    };
+const fetchMessages = async () => {
+  const url = `http://localhost:33333/conversation/rooms/${roomId}/messages`;
+  console.log("fetchMessages url:", url);
+
+  try {
+    const res = await fetch(url, { credentials: "include" });
+    console.log("fetchMessages status:", res.status);
+
+    const text = await res.text();
+    console.log("fetchMessages body:", text);
+
+    if (res.ok) {
+      const data = JSON.parse(text);
+      setMessages(Array.isArray(data) ? data : []);
+    }
+  } catch (err) {
+    console.error("Failed to fetch messages:", err);
+  }
+};
+
     void fetchMessages();
   }, [roomId]);
 
