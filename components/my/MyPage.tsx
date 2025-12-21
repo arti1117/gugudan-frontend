@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
+import { startNewChat } from "@/lib/chatNav";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle,} from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { MessageCircle, Settings, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { ROUTES } from "@/lib/constants";
+const STORAGE_KEY = "selectedRoomId";
 
 type ConsultationSession = {
   id: string;                 // room_id
@@ -76,6 +79,8 @@ function normalizeRoom(raw: any): ConsultationSession {
 }
 
 export function MyPage() {
+  const router = useRouter();
+
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("go");
 
@@ -120,8 +125,7 @@ export function MyPage() {
       setRoomsLoading(true);
       setRoomsError(null);
       try {
-        // 너 라우터가 /conversation/rooms 라고 했으니 아래처럼
-        // 만약 prefix가 /api/v1 이면 /api/v1/conversation/rooms 로 바꿔줘
+
         const res = await fetch(`${API_BASE}/conversation/rooms`, {
           method: "GET",
           credentials: "include",
@@ -316,9 +320,9 @@ export function MyPage() {
                   <div className="mb-4 text-4xl">💬</div>
                   <p className="text-gray-600 mb-6">지금 바로 상담을 시작할 수 있어요.</p>
 
-                  <Link href={ROUTES.CONSULTATION}>
-                    <Button className="px-8">상담 시작하기</Button>
-                  </Link>
+                  <Button className="px-8" onClick={() => startNewChat(router, "/chat")}>
+                    상담 시작하기
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -384,11 +388,14 @@ export function MyPage() {
                               : "알수없음"}
                           </Badge>
 
-                          <Link href={`${ROUTES.CONSULTATION}?room=${session.id}`}>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm"
+                             onClick={() => {
+                             localStorage.setItem(STORAGE_KEY, session.id);
+                             router.push("/chat");
+                            }}
+                            >
                               상세보기
                             </Button>
-                          </Link>
                         </div>
                       </div>
                     ))}
