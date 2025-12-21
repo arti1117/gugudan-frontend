@@ -20,7 +20,7 @@ export function ChatRoomList({ selectedRoomId, onSelect }: Props) {
 
   const fetchRooms = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:33333/conversation/rooms", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/conversation/rooms`, {
         credentials: "include",
       });
 
