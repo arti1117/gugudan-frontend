@@ -19,6 +19,13 @@ export default function RootLayout({
     return (
         <html lang="ko">
         <head>
+            {/* 1. 구글 애드센스 스크립트 추가 */}
+            <Script
+                async
+                src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5936532559612748"
+                crossOrigin="anonymous"
+                strategy="afterInteractive"
+            />
             {/* Google Tag Manager */}
             {GTM_ID && (
                 <Script
