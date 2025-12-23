@@ -18,7 +18,7 @@ type ConsultationSession = {
   id: string; // room_id
   date: string; // YYYY-MM-DD (created_at 기준)
   topic: string; // title or category
-  status: "active" | "closed" | "archived" | "unknown";
+  status: "ACTIVE" | "LOCKED" | "ENDED" | "UNKNOWN";
   duration?: string;
 };
 
@@ -64,19 +64,20 @@ function normalizeRoom(raw: any): ConsultationSession {
   const title = raw?.title ?? raw?.topic ?? raw?.category ?? "상담";
 
   const s = String(raw?.status ?? "").toUpperCase();
-  let status: ConsultationSession["status"] = "unknown";
-  if (s.includes("ACTIVE")) status = "active";
-  else if (s.includes("CLOSE")) status = "closed";
-  else if (s.includes("ARCH")) status = "archived";
+
+  let status: ConsultationSession["status"] = "UNKNOWN";
+  if (s === "ACTIVE") status = "ACTIVE";
+  else if (s === "LOCKED") status = "LOCKED";
+  else if (s === "ENDED") status = "ENDED";
 
   return { id, date: toYYYYMMDD(createdAt), topic: title, status };
 }
 
 function renderStatusLabel(s: ConsultationSession["status"]) {
-  if (s === "active") return "진행중";
-  if (s === "closed") return "완료";
-  if (s === "archived") return "보관";
-  return "알수없음";
+  if (s === "ACTIVE") return "진행중";
+  if (s === "LOCKED") return "한도 초과"; // 또는 "이용 제한", "잠김"
+  if (s === "ENDED") return "종료";
+  return "알 수 없음";
 }
 
 export function MyPage() {
@@ -87,6 +88,7 @@ export function MyPage() {
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:33333";
 
   const [activeTab, setActiveTab] = useState("go");
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
 
   // 프로필 수정 상태
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -151,6 +153,45 @@ export function MyPage() {
     if (!user) return;
     fetchRooms();
   }, [user, fetchRooms]);
+
+  const deleteRoom = useCallback(
+    async (roomId: string) => {
+      if (!roomId) return;
+
+      const ok = confirm("이 상담 기록을 삭제하시겠어요?\n삭제 후에는 다시 복구할 수 없어요.");
+      if (!ok) return;
+
+      setDeletingRoomId(roomId);
+
+      try {
+        const res = await fetch(`${API_BASE}/conversation/rooms/${roomId}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || `삭제 실패: ${res.status}`);
+        }
+
+        // ✅ 선택중이던 room이면 localStorage도 정리
+        const selected = localStorage.getItem(STORAGE_KEY);
+        if (selected === roomId) {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+
+        // ✅ 화면에서 제거 (굳이 재조회 안해도 됨)
+        setRooms((prev) => prev.filter((r) => r.id !== roomId));
+
+        alert("삭제되었습니다.");
+      } catch (e: any) {
+        alert(e?.message ?? "삭제 중 오류가 발생했습니다.");
+      } finally {
+        setDeletingRoomId(null);
+      }
+    },
+    [API_BASE]
+  );
 
   const totalCount = rooms.length;
 
@@ -373,7 +414,16 @@ export function MyPage() {
                           </div>
 
                           <div className="flex items-center gap-3">
-                            <Badge variant="secondary">
+                            <Badge 
+                              variant="secondary"
+                              className={
+                                session.status === "LOCKED"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : session.status === "ENDED"
+                                  ? "bg-gray-100 text-gray-700"
+                                  : "bg-green-100 text-green-800"
+                              }
+                            >
                               {renderStatusLabel(session.status)}
                             </Badge>
 
@@ -386,6 +436,12 @@ export function MyPage() {
                               }}
                             >
                               상세보기
+                            </Button>
+                            <Button variant="outline" size="sm"
+                              onClick={(e) => { e.stopPropagation(); deleteRoom(session.id); }}
+                              disabled={deletingRoomId === session.id}
+                            >
+                              {deletingRoomId === session.id ? "삭제 중..." : "삭제"}
                             </Button>
                           </div>
                         </div>

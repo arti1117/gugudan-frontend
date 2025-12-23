@@ -8,6 +8,7 @@ type Message = {
   role: "USER" | "ASSISTANT";
   content: string;
 };
+type RoomStatus = "ACTIVE" | "LOCKED" | "ENDED" | "UNKNOWN";
 
 interface Props {
   roomId: string | null;
@@ -23,39 +24,76 @@ export function ChatRoomView({ roomId, onRoomCreated }: Props) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  
+  // 상담 종료 관련 status
+  const [roomStatus, setRoomStatus] = useState<RoomStatus>("UNKNOWN");
+  const isInputBlocked = roomStatus === "LOCKED" || roomStatus === "ENDED";
+  const blockReason =
+    roomStatus === "LOCKED"
+      ? "무료 이용 한도를 초과하여 새 메시지 전송이 제한됩니다. (기록 열람은 가능)"
+      : roomStatus === "ENDED"
+      ? "상담이 종료되어 더 이상 메시지를 보낼 수 없습니다."
+      : "";
 
   // 자동 포커스
   useEffect(() => {
     inputRef.current?.focus();
   }, [roomId]);
 
-  /** 채팅 내역 로드 */
-  useEffect(() => {
-    if (!roomId) {
-      setMessages([]);
-      return;
-    }
-
-const fetchMessages = async () => {
-  const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/conversation/rooms/${roomId}/messages`;
-  console.log("fetchMessages url:", url);
-
-  try {
-    const res = await fetch(url, { credentials: "include" });
-    console.log("fetchMessages status:", res.status);
-
-    const text = await res.text();
-    console.log("fetchMessages body:", text);
-
-    if (res.ok) {
-      const data = JSON.parse(text);
-      setMessages(Array.isArray(data) ? data : []);
-    }
-  } catch (err) {
-    console.error("Failed to fetch messages:", err);
+  /** 채팅 내역 + 상태 로드 */
+useEffect(() => {
+  if (!roomId) {
+    setMessages([]);
+    setRoomStatus("UNKNOWN");
+    return;
   }
-};
 
+  // 상담 상태에 대한 추가
+  const fetchRoomStatus = async () => {
+    const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/conversation/rooms/${roomId}/status`;
+    console.log("fetchRoomStatus url:", url);
+
+    try {
+      const res = await fetch(url, { method: "GET", credentials: "include" });
+      console.log("fetchRoomStatus status:", res.status);
+
+      const text = await res.text();
+      console.log("fetchRoomStatus body:", text);
+
+      if (!res.ok) {
+        setRoomStatus("UNKNOWN");
+        return;
+      }
+
+      const data = text ? JSON.parse(text) : {};
+      const s = String(data?.status ?? "").toUpperCase();
+
+      if (s === "ACTIVE") setRoomStatus("ACTIVE");
+      else if (s === "LOCKED") setRoomStatus("LOCKED");
+      else if (s === "ENDED") setRoomStatus("ENDED");
+      else setRoomStatus("UNKNOWN");
+    } catch (e) {
+      console.error("fetchRoomStatus error:", e);
+      setRoomStatus("UNKNOWN");
+    }
+  };
+
+  const fetchMessages = async () => {
+    const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/conversation/rooms/${roomId}/messages`;
+
+    try {
+      const res = await fetch(url, { credentials: "include" });
+      const text = await res.text();
+
+      if (res.ok) {
+        const data = JSON.parse(text);
+        setMessages(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch messages:", err);
+    }
+  };
+    void fetchRoomStatus();
     void fetchMessages();
   }, [roomId]);
 
@@ -68,6 +106,8 @@ const fetchMessages = async () => {
 
   /** 메시지 전송 통합 로직 (텍스트를 인자로 받음) */
   const handleSendMessage = async (textToSend?: string) => {
+    if (isInputBlocked) return; // ✅ LOCKED/ENDED이면 전송 자체 차단
+
     const finalContent = textToSend || input;
     if (!finalContent.trim() || loading) return;
 
@@ -90,6 +130,28 @@ const fetchMessages = async () => {
         body: JSON.stringify({ room_id: roomId, message: finalContent }),
         signal: abortControllerRef.current.signal,
       });
+
+      // ✅ 1) 먼저 에러 처리 (여기가 핵심)
+      if (!res.ok) {
+        const errText = await res.text();
+        console.log("sendMessage error body:", errText);
+
+        // 서버가 상태를 안 내려줘도, 전송 실패로 LOCKED 추정
+        if (
+          res.status === 429 || // Too Many Requests
+          res.status === 402 || // Payment Required (혹시)
+          res.status === 403 || // Forbidden (혹시)
+          errText.includes("한도") ||
+          errText.toLowerCase().includes("quota") ||
+          errText.toLowerCase().includes("limit")
+        ) {
+          setRoomStatus("LOCKED");
+        }
+
+        // 마지막 assistant 빈 버블 제거(선택)
+        setMessages((prev) => prev.slice(0, -1));
+        return;
+      }
 
       if (!res.body) return;
       const reader = res.body.getReader();
@@ -155,6 +217,36 @@ const fetchMessages = async () => {
     }
   ];
 
+  // 상담 종료에 대한 멘트
+  const endConsultation = async () => {
+    if (!roomId) return;
+    if (roomStatus === "ENDED") return;
+
+    if (!confirm("상담을 종료하시겠습니까? 종료 후에는 메시지를 보낼 수 없습니다.")) return;
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/conversation/rooms/${roomId}/end`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "ENDED" }),
+        }
+      );
+
+      if (!res.ok) {
+        alert("상담 종료에 실패했습니다.");
+        return;
+      }
+
+      setRoomStatus("ENDED"); // ✅ 즉시 UI 반영
+    } catch (e) {
+      console.error(e);
+      alert("서버 통신 중 오류가 발생했습니다.");
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1 h-full bg-white relative">
       {/* Header */}
@@ -162,6 +254,16 @@ const fetchMessages = async () => {
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" />
           <h2 className="font-bold text-gray-800 tracking-tight">마음 정리 동반자</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={endConsultation}
+            disabled={!roomId || loading || roomStatus === "ENDED"}
+            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+            title="상담 종료"
+          >
+            상담 종료
+          </button>
         </div>
       </header>
 
@@ -211,7 +313,8 @@ const fetchMessages = async () => {
             <textarea
               ref={inputRef}
               rows={1}
-              className="flex-1 max-h-48 p-2 text-base text-gray-900 bg-transparent outline-none resize-none placeholder:text-gray-400"
+              disabled={isInputBlocked}
+              className="flex-1 max-h-48 p-2 text-base text-gray-900 bg-transparent outline-none resize-none placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-60"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onCompositionStart={() => setIsComposing(true)}
@@ -222,9 +325,9 @@ const fetchMessages = async () => {
                   void handleSendMessage();
                 }
               }}
-              placeholder="무엇이든 물어보세요"
+              placeholder={isInputBlocked ? "기록 열람만 가능합니다." : "무엇이든 물어보세요"}
             />
-            
+
             {loading ? (
               <button onClick={stopGeneration} className="p-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors">
                 <StopIcon className="w-5 h-5" />
@@ -232,13 +335,21 @@ const fetchMessages = async () => {
             ) : (
               <button 
                 onClick={() => void handleSendMessage()}
-                disabled={!input.trim()}
+                disabled={!input.trim() || isInputBlocked}
                 className="p-2.5 bg-pink-500 text-white rounded-xl hover:bg-pink-600 disabled:bg-gray-200 disabled:text-gray-400 transition-all shadow-sm"
               >
                 <PaperAirplaneIcon className="w-5 h-5" />
               </button>
             )}
           </div>
+          
+          {/* ? 안내 배너 */}
+          {isInputBlocked && (
+            <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              {blockReason}
+            </div>
+          )}
+
           <p className="text-[11px] text-gray-400 mt-3 text-center tracking-tight">
             이 대화는 오직 당신의 기록 페이지에서 다시 돌아보며 마음을 정리하는 용도로만 사용됩니다.
           </p>
